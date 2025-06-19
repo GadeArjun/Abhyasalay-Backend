@@ -3,7 +3,7 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const connectDB = require("./utils/db");
-require("./config/cloudinary"); 
+require("./config/cloudinary");
 
 // Routes
 const { teacherRouters } = require("./routers/teacher");
@@ -31,6 +31,10 @@ app.use(
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.get("/", (req, res) => {
+  res.json({ message: "Hello, World!", success: true });
+});
 
 // Routes
 app.use("/api/teachers", teacherRouters);
