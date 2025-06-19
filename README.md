@@ -1,2 +1,1 @@
-# Abhyasalay-Backend
-Abhyasalay Backend
+# Abhyasalay Backend
