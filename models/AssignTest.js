@@ -71,7 +71,8 @@ const assignTestSchema = new mongoose.Schema(
       {
         question: String,
         options: [String],
-        correctAnswerIndex: Number,
+        // correctAnswerIndex: Number,
+        correctAnswer: Number,
       },
     ],
     studentStatus: [
@@ -99,7 +100,12 @@ const assignTestSchema = new mongoose.Schema(
         },
         submission: {
           textAnswer: { type: String },
-          fileUrl: { type: String },
+          fileUrl: [{
+            name: { type: String },
+            url: { type: String },
+            mimeType: { type: String },
+            size: { type: Number },
+          }],
           quizAnswers: [{ type: Number }], // index of selected options
         },
         feedback: {

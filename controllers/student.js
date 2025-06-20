@@ -70,7 +70,6 @@ exports.getStudentById = async (req, res) => {
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
     }
-    console.log(student.teacherId);
 
     return res.json({ student });
   } catch (err) {

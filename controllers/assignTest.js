@@ -12,7 +12,6 @@ const asyncHandler = (fn) => (req, res, next) => {
 
 exports.uploadFilesAndCreateTest = async (req, res) => {
   try {
-    console.log(req.files, "files");
     const uploaded = await Promise.all(
       (req.files || []).map((f) =>
         cloudinary.uploader
@@ -54,16 +53,12 @@ exports.uploadFilesAndCreateTest = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    console.log({assignedTo})
     const parsedAssignTo =
       type === "file" ? JSON.parse(assignedTo) : assignedTo;
 
     const assignedToObjectIds = parsedAssignTo.map((id) => {
-      console.log(id);
-      new mongoose.Types.ObjectId(id);
+      return new mongoose.Types.ObjectId(id);
     });
-
-    console.log(quizQuestions);
 
     const parsedQuizQuestions =
       type === "file" ? JSON.parse(quizQuestions) : quizQuestions;
@@ -81,8 +76,6 @@ exports.uploadFilesAndCreateTest = async (req, res) => {
       assignedBy: new mongoose.Types.ObjectId(assignedBy),
       quizQuestions: parsedQuizQuestions,
     });
-    console.log({ parsedQuizQuestions }, parsedQuizQuestions[0]);
-    console.log(newTest.files);
     res.status(201).json(newTest);
   } catch (err) {
     console.error("Upload/Create error:", err);
@@ -106,18 +99,16 @@ exports.uploadFilesAndCreateTest = async (req, res) => {
 exports.getAllTests = asyncHandler(async (req, res) => {
   const { classId, subjectId, teacherId } = req.query;
   const filter = {};
-  console.log({ classId, subjectId, teacherId });
 
   if (classId) filter.classId = new mongoose.Types.ObjectId(classId);
   if (subjectId) filter.subjectId = new mongoose.Types.ObjectId(subjectId);
   if (teacherId && teacherId != "undefined")
-    filter.assignedBy = new mongoose.Types.ObjectId(teacherId); // ✅ FIX HERE
+    filter.assignedBy = new mongoose.Types.ObjectId(teacherId);
 
   const tests = await AssignTest.find(filter) // <-- use filter here
     .populate("classId subjectId assignedBy assignedTo")
     .sort({ dueDate: -1, createdAt: -1 });
 
-  // console.log({ a: tests[0].assignedTo });
   res.json(tests);
 });
 
@@ -151,6 +142,9 @@ exports.getTestById = asyncHandler(async (req, res) => {
   );
   if (!test) return res.status(404).json({ message: "Test not found" });
 
+  test.quizQuestions.map((q) => {
+    // correctAnswer
+  });
   res.json(test);
 });
 
@@ -173,14 +167,6 @@ exports.updateTest = asyncHandler(async (req, res) => {
 
   res.json(result);
 });
-
-// DELETE test by _id
-// exports.deleteTest = asyncHandler(async (req, res) => {
-//   const { id } = req.params;
-//   const result = await AssignTest.findByIdAndDelete(id);
-//   if (!result) return res.status(404).json({ message: "Test not found" });
-//   res.json({ message: "Test deleted successfully" });
-// });
 
 const getResourceType = (mimeType) => {
   if (mimeType.startsWith("image/")) return "image";
@@ -205,7 +191,6 @@ exports.deleteTest = asyncHandler(async (req, res) => {
       try {
         const deletePromises = test.files.map((file) => {
           const segments = file.uri.split("/");
-          console.log(file);
           const publicIdWithExtension = segments
             .slice(-2)
             .join("/")
@@ -231,12 +216,10 @@ exports.deleteTest = asyncHandler(async (req, res) => {
       .json({ message: "Test and associated files deleted successfully." });
   } catch (err) {
     console.error("❌ Delete test error:", err);
-    res
-      .status(500)
-      .json({
-        message: "Something went wrong while deleting the test.",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Something went wrong while deleting the test.",
+      error: err.message,
+    });
   }
 });
 
@@ -248,20 +231,107 @@ exports.updateStudentStatus = asyncHandler(async (req, res) => {
   const test = await AssignTest.findById(testId);
   if (!test) return res.status(404).json({ message: "Test not found" });
 
-  const stu = test.studentStatus.find(
-    (s) => s.studentId.toString() === studentId
-  );
-  if (!stu)
+  // Check if student is assigned
+  const isAssigned = test.assignedTo.find((s) => s.toString() === studentId);
+  if (!isAssigned) {
     return res
       .status(404)
       .json({ message: "Student not assigned to this test" });
+  }
 
-  if (status) stu.status = status;
-  if (submittedAt) stu.submittedAt = new Date(submittedAt);
-  if (submission) stu.submission = submission;
-  if (marksObtained != null) stu.marksObtained = marksObtained;
-  if (feedback != null) stu.feedback = feedback;
+  // Find the student status record
+  let stuStatus = test.studentStatus.find(
+    (s) => s.studentId.toString() === studentId
+  );
+
+  // 🔁 Upload files if test type is "file" or "text"
+  let fileUrls = [];
+  if ((test.type === "file" || test.type === "text") && req.files?.length > 0) {
+    for (const file of req.files) {
+      const uploadResult = await cloudinary.uploader.upload(file.path, {
+        folder: "student_submissions",
+        resource_type: "auto",
+      });
+
+      fileUrls.push({
+        name: file.originalname,
+        url: uploadResult.secure_url,
+        mimeType: file.mimetype,
+        size: file.size,
+      });
+
+      // Clean up local file
+      fs.unlinkSync(file.path);
+    }
+  }
+
+  // Calculate marks if it's a quiz
+  let calculatedMarks = 0;
+  if (test.type === "quiz" && submission?.quizAnswers) {
+    const quizAnswers = submission.quizAnswers;
+    const correctAnswers = test.quizQuestions.map((q) => q.correctAnswer);
+
+    for (
+      let i = 0;
+      i < Math.min(quizAnswers.length, correctAnswers.length);
+      i++
+    ) {
+      if (quizAnswers[i] === correctAnswers[i]) {
+        calculatedMarks++;
+      }
+    }
+  }
+
+  if (!stuStatus) {
+    // If not found, push a new one
+    const student = await mongoose.model("Student").findById(studentId);
+    if (!student) {
+      return res.status(404).json({ message: "Student record not found" });
+    }
+
+    stuStatus = {
+      studentId: student._id,
+      studentName: student.fullName,
+      status: status || "pending",
+      submittedAt: submittedAt ? new Date(submittedAt) : null,
+      marksObtained:
+        test.type === "quiz" ? calculatedMarks : marksObtained ?? 0,
+      submission: {
+        ...(submission || {}),
+        fileUrl: fileUrls.length > 0 ? fileUrls : undefined,
+        textAnswer: submission?.textAnswer || "",
+      },
+      feedback: feedback || "",
+    };
+
+    test.studentStatus.push(stuStatus);
+  } else {
+    // Update existing fields
+    if (status) stuStatus.status = status;
+    if (submittedAt) stuStatus.submittedAt = new Date(submittedAt);
+    if (submission) {
+      stuStatus.submission = {
+        ...stuStatus.submission,
+        ...submission,
+        fileUrl: fileUrls.length > 0 ? fileUrls : stuStatus.submission.fileUrl,
+      };
+    } else if (fileUrls.length > 0) {
+      stuStatus.submission = {
+        ...stuStatus.submission,
+        fileUrl: fileUrls,
+      };
+    }
+    if (test.type === "quiz") {
+      stuStatus.marksObtained = calculatedMarks;
+    } else if (marksObtained != null) {
+      stuStatus.marksObtained = marksObtained;
+    }
+    if (feedback != null) stuStatus.feedback = feedback;
+  }
+
+
+  // Save the updated test
 
   await test.save();
-  res.json(stu);
+  res.json({ message: "Student status updated", data: stuStatus });
 });

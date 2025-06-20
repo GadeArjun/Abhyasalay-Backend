@@ -1,15 +1,22 @@
-// routes/assignTests.route.js
 const express = require("express");
 const router = express.Router();
 const upload = require("../middlewares/upload");
 const ctrl = require("../controllers/assignTest");
 
+// More specific routes first
+router.get("/student/:id", ctrl.getTestsByStudent);
 router.post("/", upload.array("files", 5), ctrl.uploadFilesAndCreateTest);
 router.get("/", ctrl.getAllTests);
-router.get("/:id", ctrl.getTestById);
-router.get("/student/:id", ctrl.getTestsByStudent);
 router.patch("/:id", ctrl.updateTest);
 router.delete("/:id", ctrl.deleteTest);
-router.patch("/:testId/student/:studentId", ctrl.updateStudentStatus);
+
+// Must come after /student/:id
+router.get("/:id", ctrl.getTestById);
+
+router.post(
+  "/:testId/student/:studentId",
+  upload.array("files", 5),
+  ctrl.updateStudentStatus
+);
 
 exports.assignTestRouters = router;

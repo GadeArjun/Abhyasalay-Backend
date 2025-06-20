@@ -13,11 +13,6 @@ const subjectSchema = new mongoose.Schema(
       default: "book-outline", // Optional icon for UI
     },
 
-    // bgColor: {
-    //   type: String,
-    //   default: "#F3F4F6", // Default light gray
-    // },
-
     classId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Class",
