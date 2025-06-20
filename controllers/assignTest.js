@@ -10,10 +10,9 @@ const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-
 exports.uploadFilesAndCreateTest = async (req, res) => {
   try {
-    console.log(req.files,"files");
+    console.log(req.files, "files");
     const uploaded = await Promise.all(
       (req.files || []).map((f) =>
         cloudinary.uploader
@@ -54,19 +53,20 @@ exports.uploadFilesAndCreateTest = async (req, res) => {
     ) {
       return res.status(400).json({ message: "Missing required fields" });
     }
-    const assignedToObjectIds = assignedTo.map(
-      (id) => {
-        
-        console.log(id)
-        new mongoose.Types.ObjectId(id)
-      }
-    );
+
+    console.log({assignedTo})
+    const parsedAssignTo =
+      type === "file" ? JSON.parse(assignedTo) : assignedTo;
+
+    const assignedToObjectIds = parsedAssignTo.map((id) => {
+      console.log(id);
+      new mongoose.Types.ObjectId(id);
+    });
 
     console.log(quizQuestions);
 
-      const parsedQuizQuestions = type === "file" ? 
-       JSON.parse(quizQuestions)
-      : quizQuestions;
+    const parsedQuizQuestions =
+      type === "file" ? JSON.parse(quizQuestions) : quizQuestions;
 
     const newTest = await AssignTest.create({
       classId: new mongoose.Types.ObjectId(classId),
@@ -79,27 +79,27 @@ exports.uploadFilesAndCreateTest = async (req, res) => {
       dueDate: new Date(dueDate),
       assignedTo: assignedToObjectIds,
       assignedBy: new mongoose.Types.ObjectId(assignedBy),
-      quizQuestions:parsedQuizQuestions,
+      quizQuestions: parsedQuizQuestions,
     });
-console.log({parsedQuizQuestions},parsedQuizQuestions[0])
+    console.log({ parsedQuizQuestions }, parsedQuizQuestions[0]);
     console.log(newTest.files);
     res.status(201).json(newTest);
   } catch (err) {
     console.error("Upload/Create error:", err);
     res.status(500).json({ message: err.message });
   } finally {
-  // Clean uploads folder
-  const uploadsDir = path.join(__dirname, "../uploads");
-  try {
-    const files = fs.readdirSync(uploadsDir);
-    for (const file of files) {
-      fs.unlinkSync(path.join(uploadsDir, file));
+    // Clean uploads folder
+    const uploadsDir = path.join(__dirname, "../uploads");
+    try {
+      const files = fs.readdirSync(uploadsDir);
+      for (const file of files) {
+        fs.unlinkSync(path.join(uploadsDir, file));
+      }
+      console.log("✅ Uploads folder cleaned");
+    } catch (err) {
+      console.error("❌ Failed to clean uploads folder:", err.message);
     }
-    console.log("✅ Uploads folder cleaned");
-  } catch (err) {
-    console.error("❌ Failed to clean uploads folder:", err.message);
   }
-}
 };
 
 // GET all tests (with optional filters: classId, subjectId, teacherId)
@@ -197,12 +197,19 @@ exports.deleteTest = asyncHandler(async (req, res) => {
     }
 
     // Delete Cloudinary files if test is of type 'file'
-    if (test.type === "file" && Array.isArray(test.files) && test.files.length > 0) {
+    if (
+      test.type === "file" &&
+      Array.isArray(test.files) &&
+      test.files.length > 0
+    ) {
       try {
         const deletePromises = test.files.map((file) => {
           const segments = file.uri.split("/");
           console.log(file);
-          const publicIdWithExtension = segments.slice(-2).join("/").split(".")[0]; // assignTests/filename
+          const publicIdWithExtension = segments
+            .slice(-2)
+            .join("/")
+            .split(".")[0]; // assignTests/filename
           const resourceType = getResourceType(file.mimeType); // get correct type from mime
 
           return cloudinary.uploader.destroy(publicIdWithExtension, {
@@ -219,13 +226,19 @@ exports.deleteTest = asyncHandler(async (req, res) => {
 
     await test.deleteOne();
 
-    res.status(200).json({ message: "Test and associated files deleted successfully." });
+    res
+      .status(200)
+      .json({ message: "Test and associated files deleted successfully." });
   } catch (err) {
     console.error("❌ Delete test error:", err);
-    res.status(500).json({ message: "Something went wrong while deleting the test.", error: err.message });
+    res
+      .status(500)
+      .json({
+        message: "Something went wrong while deleting the test.",
+        error: err.message,
+      });
   }
 });
-
 
 // UPDATE a student's submission or status within a test
 exports.updateStudentStatus = asyncHandler(async (req, res) => {

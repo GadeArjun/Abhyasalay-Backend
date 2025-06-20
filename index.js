@@ -36,6 +36,16 @@ app.get("/", (req, res) => {
   res.json({ message: "Hello, World!", success: true });
 });
 
+app.use((err, req, res, next) => {
+  try{console.error(err.stack);
+  res
+    .status(err.statusCode || 500)
+    .json({ message: err.message || "Internal Server Error" });}
+    catch(err){
+      console.log({err})
+    }
+});
+
 // Routes
 app.use("/api/teachers", teacherRouters);
 app.use("/api/students", studentRouters);
@@ -44,12 +54,7 @@ app.use("/api/classes", authMiddleware, classRouters);
 app.use("/api/subjects", authMiddleware, subjectRouters);
 app.use("/api/assign-tests", authMiddleware, assignTestRouters);
 
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res
-    .status(err.statusCode || 500)
-    .json({ message: err.message || "Internal Server Error" });
-});
+
 // Server Listen
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
