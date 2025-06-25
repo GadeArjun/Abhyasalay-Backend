@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+const cron = require("node-cron");
 const connectDB = require("./utils/db");
 require("./config/cloudinary");
 
@@ -13,7 +14,7 @@ const { authRouters } = require("./routers/auth");
 const { classRouters } = require("./routers/class");
 const { subjectRouters } = require("./routers/subjects");
 const { assignTestRouters } = require("./routers/assignTest");
-
+const { markLateSubmissions } = require("./utils/markLateSubmissions");
 // Init App
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -37,13 +38,14 @@ app.get("/", (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  try{console.error(err.stack);
-  res
-    .status(err.statusCode || 500)
-    .json({ message: err.message || "Internal Server Error" });}
-    catch(err){
-      console.log({err})
-    }
+  try {
+    console.error(err.stack);
+    res
+      .status(err.statusCode || 500)
+      .json({ message: err.message || "Internal Server Error" });
+  } catch (err) {
+    console.log({ err });
+  }
 });
 
 // Routes
@@ -54,6 +56,14 @@ app.use("/api/classes", authMiddleware, classRouters);
 app.use("/api/subjects", authMiddleware, subjectRouters);
 app.use("/api/assign-tests", authMiddleware, assignTestRouters);
 
+// 🕐 Schedule: every day at 12:01 AM
+cron.schedule("1 0 * * *", () => {
+  markLateSubmissions();
+});
+
+// cron.schedule("*/30 * * * * *", () => {
+//   markLateSubmissions();
+// });
 
 // Server Listen
 app.listen(PORT, () => {

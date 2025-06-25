@@ -28,6 +28,12 @@ const subjectSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    units: [
+      {
+        unitNo: { type: Number },
+        unitName: { type: String },
+      },
+    ],
   },
   { timestamps: true }
 );

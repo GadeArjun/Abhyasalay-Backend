@@ -81,35 +81,49 @@ exports.getSubjectsByClassId = async (req, res) => {
 };
 
 // 5. UPDATE subject by _id
+
 exports.updateSubject = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, icon, classId, teacherId, description } = req.body;
+    const { name, icon, description, units } = req.body;
+    const subjectId = id;
+    if (!subjectId) {
+      return res.status(400).json({ message: "Subject ID is required." });
+    }
 
-    const subject = await Subject.findById(id);
+    const subject = await Subject.findById(subjectId);
     if (!subject) {
-      return res.status(404).json({ message: "Subject not found" });
+      return res.status(404).json({ message: "Subject not found." });
     }
 
-    // Optional: validate if class exists
-    if (classId) {
-      const classExists = await Class.findById(classId);
-      if (!classExists) {
-        return res.status(404).json({ message: "Class not found" });
-      }
+    // Update fields if provided
+    if (name) subject.name = name;
+    if (icon) subject.icon = icon;
+    if (description !== undefined) subject.description = description;
+    if (Array.isArray(units)) {
+      const existingUnits = subject.units || [];
+
+      // Merge and remove duplicates by unitNo
+      const mergedUnits = [...units, ...existingUnits].filter(
+        (unit, index, self) =>
+          index === self.findIndex((u) => u.unitNo === unit.unitNo)
+      );
+
+      subject.units = mergedUnits;
     }
 
-    subject.name = name ?? subject.name;
-    subject.icon = icon ?? subject.icon;
-    subject.classId = classId ?? subject.classId;
-    subject.teacherId = teacherId ?? subject.teacherId;
-    subject.description = description ?? subject.description;
+    await subject.save();
 
-    const updated = await subject.save();
-    return res.status(200).json({ message: "Subject updated", data: updated });
+    return res.status(200).json({
+      message: "Subject updated successfully.",
+      subject,
+    });
   } catch (err) {
-    console.error("Error updating subject:", err);
-    return res.status(500).json({ message: "Internal server error" });
+    console.error("Update subject error:", err);
+    return res.status(500).json({
+      message: "Server error while updating subject.",
+      error: err.message,
+    });
   }
 };
 

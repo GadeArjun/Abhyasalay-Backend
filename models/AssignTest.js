@@ -100,12 +100,14 @@ const assignTestSchema = new mongoose.Schema(
         },
         submission: {
           textAnswer: { type: String },
-          fileUrl: [{
-            name: { type: String },
-            url: { type: String },
-            mimeType: { type: String },
-            size: { type: Number },
-          }],
+          fileUrl: [
+            {
+              name: { type: String },
+              url: { type: String },
+              mimeType: { type: String },
+              size: { type: Number },
+            },
+          ],
           quizAnswers: [{ type: Number }], // index of selected options
         },
         feedback: {

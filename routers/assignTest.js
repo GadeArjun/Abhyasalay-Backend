@@ -19,4 +19,8 @@ router.post(
   ctrl.updateStudentStatus
 );
 
+router.post("/mark-as-seen", ctrl.markTestAsSeen);
+
+router.post("/update-student-marks", ctrl.updateStudentMarks);
+
 exports.assignTestRouters = router;

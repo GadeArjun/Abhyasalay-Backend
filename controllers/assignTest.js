@@ -2,6 +2,7 @@
 
 const mongoose = require("mongoose");
 const AssignTest = require("../models/AssignTest");
+const Student = require("../models/Student");
 const fs = require("fs");
 const cloudinary = require("../config/cloudinary");
 const path = require("path");
@@ -60,6 +61,24 @@ exports.uploadFilesAndCreateTest = async (req, res) => {
       return new mongoose.Types.ObjectId(id);
     });
 
+    const assignedStudents = await Student.find({
+      _id: { $in: assignedToObjectIds },
+    }).select("_id fullName");
+
+    const studentStatus = assignedStudents.map((s) => ({
+      studentId: s._id,
+      studentName: s.fullName,
+      status: "pending",
+      submittedAt: null,
+      marksObtained: 0,
+      submission: {
+        textAnswer: "",
+        fileUrl: [],
+        quizAnswers: [],
+      },
+      feedback: "",
+    }));
+
     const parsedQuizQuestions =
       type === "file" ? JSON.parse(quizQuestions) : quizQuestions;
 
@@ -75,7 +94,23 @@ exports.uploadFilesAndCreateTest = async (req, res) => {
       assignedTo: assignedToObjectIds,
       assignedBy: new mongoose.Types.ObjectId(assignedBy),
       quizQuestions: parsedQuizQuestions,
+      studentStatus,
     });
+
+    // const newTest = await AssignTest.create({
+    //   classId: new mongoose.Types.ObjectId(classId),
+    //   subjectId: new mongoose.Types.ObjectId(subjectId),
+    //   unit,
+    //   type,
+    //   text,
+    //   files: uploaded,
+    //   note,
+    //   dueDate: new Date(dueDate),
+    //   assignedTo: assignedToObjectIds,
+    //   assignedBy: new mongoose.Types.ObjectId(assignedBy),
+    //   quizQuestions: parsedQuizQuestions,
+    // });
+
     res.status(201).json(newTest);
   } catch (err) {
     console.error("Upload/Create error:", err);
@@ -329,9 +364,84 @@ exports.updateStudentStatus = asyncHandler(async (req, res) => {
     if (feedback != null) stuStatus.feedback = feedback;
   }
 
-
   // Save the updated test
 
   await test.save();
   res.json({ message: "Student status updated", data: stuStatus });
 });
+
+exports.markTestAsSeen = asyncHandler(async (req, res) => {
+  try {
+    const { testId, studentId } = req.body;
+
+    if (!testId || !studentId) {
+      return res
+        .status(400)
+        .json({ message: "Test ID and Student ID are required." });
+    }
+
+    const assignTest = await AssignTest.findById(testId);
+    if (!assignTest) {
+      return res.status(404).json({ message: "Assigned test not found." });
+    }
+
+    // Find the student in the studentStatus array
+    const studentStatus = assignTest.studentStatus.find(
+      (entry) => entry.studentId.toString() === studentId
+    );
+
+    if (!studentStatus) {
+      return res
+        .status(404)
+        .json({ message: "Student not found in this test." });
+    }
+
+    if (studentStatus.status === "pending") {
+      studentStatus.status = "seen";
+      await assignTest.save();
+      return res.status(200).json({ message: "Status updated to seen." });
+    } else {
+      return res.status(200).json({
+        message: `No update. Current status: ${studentStatus.status}`,
+      });
+    }
+  } catch (error) {
+    console.error("Error updating status:", error);
+    return res
+      .status(500)
+      .json({ message: "Server error while updating status." });
+  }
+});
+
+exports.updateStudentMarks = async (req, res) => {
+  try {
+    const { testId, studentId, marksObtained } = req.body;
+
+    if (!testId || !studentId || marksObtained == null) {
+      return res.status(400).json({ message: "Missing required fields." });
+    }
+
+    const test = await AssignTest.findById(testId);
+    if (!test) {
+      return res.status(404).json({ message: "Test not found." });
+    }
+
+    const studentStatus = test.studentStatus.find(
+      (s) => s.studentId.toString() === studentId
+    );
+
+    if (!studentStatus) {
+      return res.status(404).json({ message: "Student submission not found." });
+    }
+
+    studentStatus.marksObtained = marksObtained;
+    await test.save();
+
+    return res
+      .status(200)
+      .json({ message: "Marks updated successfully.", studentStatus });
+  } catch (error) {
+    console.error("Error updating marks:", error);
+    return res.status(500).json({ message: "Internal server error." });
+  }
+};
