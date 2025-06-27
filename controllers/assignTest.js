@@ -6,6 +6,8 @@ const Student = require("../models/Student");
 const fs = require("fs");
 const cloudinary = require("../config/cloudinary");
 const path = require("path");
+const { sendAndSaveNotification } = require("../utils/pushHelper");
+const Subjects = require("../models/Subjects");
 // Handler wrapper
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -95,6 +97,20 @@ exports.uploadFilesAndCreateTest = async (req, res) => {
       assignedBy: new mongoose.Types.ObjectId(assignedBy),
       quizQuestions: parsedQuizQuestions,
       studentStatus,
+    });
+
+    // ✅ Fetch subject name
+    const subjectData = await Subjects.findById(subjectId);
+    const subjectName = subjectData?.name || "A subject";
+
+    console.log("assign test");
+    await sendAndSaveNotification({
+      receiverUserIds: assignedStudents.map((s) => s._id.toString()),
+      senderUserId: assignedBy,
+      type: "assigned_test",
+      title: "New Test Assigned",
+      body: `${subjectName}: ${unit}`,
+      data: { testId: newTest._id },
     });
 
     // const newTest = await AssignTest.create({
@@ -363,6 +379,18 @@ exports.updateStudentStatus = asyncHandler(async (req, res) => {
     }
     if (feedback != null) stuStatus.feedback = feedback;
   }
+
+  const subjectData = await Subjects.findById(test.subjectId);
+  const subjectName = subjectData?.name || "A subject";
+
+  sendAndSaveNotification({
+    receiverUserIds: [test.assignedBy],
+    senderUserId: studentId,
+    type: "test_submitted",
+    title: "Test Submitted",
+    body: `${subjectName}: ${test.unit}`,
+    data: { testId: test._id },
+  });
 
   // Save the updated test
 

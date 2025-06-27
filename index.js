@@ -1,4 +1,5 @@
 require("dotenv").config();
+const http = require("http");
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
@@ -15,6 +16,9 @@ const { classRouters } = require("./routers/class");
 const { subjectRouters } = require("./routers/subjects");
 const { assignTestRouters } = require("./routers/assignTest");
 const { markLateSubmissions } = require("./utils/markLateSubmissions");
+const deviceTokenRoutes = require("./routers/deviceTokenRoutes");
+const { notificationsRouter } = require("./routers/notificationRoutes");
+
 // Init App
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -55,17 +59,23 @@ app.use("/api/auth", authRouters);
 app.use("/api/classes", authMiddleware, classRouters);
 app.use("/api/subjects", authMiddleware, subjectRouters);
 app.use("/api/assign-tests", authMiddleware, assignTestRouters);
+app.use("/api/device-token", deviceTokenRoutes);
+app.use("/api/notifications", authMiddleware, notificationsRouter);
 
 // 🕐 Schedule: every day at 12:01 AM
 cron.schedule("1 0 * * *", () => {
   markLateSubmissions();
 });
+1;
 
 // cron.schedule("*/30 * * * * *", () => {
 //   markLateSubmissions();
 // });
 
 // Server Listen
+
+// HTTP + WebSocket server
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
