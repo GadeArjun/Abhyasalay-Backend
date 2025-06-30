@@ -8,6 +8,12 @@ const cloudinary = require("../config/cloudinary");
 const path = require("path");
 const { sendAndSaveNotification } = require("../utils/pushHelper");
 const Subjects = require("../models/Subjects");
+const {
+  extractTeacherQuestionText,
+  extractStudentAnswerText,
+} = require("../utils/analyzeSubmission");
+const { enqueueJob } = require("../utils/queueProcessor");
+
 // Handler wrapper
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -103,7 +109,7 @@ exports.uploadFilesAndCreateTest = async (req, res) => {
     const subjectData = await Subjects.findById(subjectId);
     const subjectName = subjectData?.name || "A subject";
 
-    console.log("assign test");
+    console.log("assign test", { assignedStudents });
     await sendAndSaveNotification({
       receiverUserIds: assignedStudents.map((s) => s._id.toString()),
       senderUserId: assignedBy,
@@ -332,6 +338,26 @@ exports.updateStudentStatus = asyncHandler(async (req, res) => {
       }
     }
   }
+
+  //   // for auto marks and feedback generation
+  //   else {
+  //     // 1. Extract question (from text, image, or PDF)
+  //     const questionText = await extractTeacherQuestionText(test);
+
+  //     // 2. Extract student answer
+  //     const answerText = await extractStudentAnswerText({
+  //       textAnswer: submission.textAnswer,
+  //       fileUrl: fileUrls,
+  //     });
+  // console.log({questionText,answerText})
+
+  //     await enqueueJob({
+  //       question: questionText,
+  //       answer: answerText,
+  //       testId: test._id.toString(),
+  //       studentId,
+  //     });
+  //   }
 
   if (!stuStatus) {
     // If not found, push a new one

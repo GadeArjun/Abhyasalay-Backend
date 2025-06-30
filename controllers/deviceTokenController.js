@@ -19,11 +19,13 @@ exports.saveDeviceToken = async (req, res) => {
       // Update token
       existing.token = token;
       await existing.save();
+      console.log('Device token updated')
       return res.status(200).json({ success: true, message: 'Device token updated' });
     }
 
     // Create new token
     const newToken = new DeviceToken({ userId, token });
+    console.log('Device token saved')
     await newToken.save();
     res.status(201).json({ success: true, message: 'Device token saved' });
   } catch (error) {

@@ -22,7 +22,7 @@ exports.sendAndSaveNotification = async ({
       });
       await notification.save();
 
-      console.log("FCM notification sent successfully")
+      console.log("FCM notification sent successfully",receiverId)
 
       // Send push to FCM device
       const tokenDoc = await DeviceToken.findOne({ userId: receiverId });
