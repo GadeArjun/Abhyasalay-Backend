@@ -4,7 +4,7 @@ const bcrypt = require("bcryptjs");
 const teacherSchema = new mongoose.Schema(
   {
     fullName: { type: String, required: true },
-    gender: { type: String, enum: ["male", "female", "other"], required: true },
+    gender: { type: String,  required: true },
     // dob: { type: Date },
     contactNumber: { type: String },
     email: { type: String, required: true, unique: true },
@@ -20,7 +20,7 @@ const teacherSchema = new mongoose.Schema(
     password: { type: String, required: true },
 
     qualifications: [String],
-    profilePic: { type: String }, // Optional: photo URL
+    profilePic: { type: String, default:"https://png.pngtree.com/png-vector/20220817/ourmid/pngtree-manager-icon-he-teacher-profile-vector-png-image_19531546.jpg" }, // Optional: photo URL
   },
   { timestamps: true }
 );
